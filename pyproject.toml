@@ -1,0 +1,11 @@
+[project]
+name = "gnomesearchproviderlib"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "dbus-next",
+    "pygobject==3.54.5",
+    "pygobject-stubs==2.14.0",
+    "sphinx==8.3.0",
+]
