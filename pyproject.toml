@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "A Python package for interacting with Gnome search providers without using Gnome Shell"
 readme = "README.md"
 authors = [{ name = "whipped-cream", email = "michaellangley12@gmail.com" }]
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
