@@ -1,162 +1,26 @@
-import asyncio
+__all__ = ["Result", "Client", "ClientStateful"]
+
 import os
 import sys
-from asyncio import Task
+
+import asyncio
+import configparser
+import dbus_next.auth
+from dbus_next.aio import MessageBus
+
 from dataclasses import dataclass
 from pathlib import Path
-import logging
-from typing import AsyncGenerator, Optional, Any, Iterable
+from typing import AsyncGenerator, Optional, Iterable
 
+import logging
 logger = logging.getLogger(__name__)
 
-import dbus_next.auth
-from dbus_next import Variant
-from dbus_next.aio import MessageBus
-from dbus_next.introspection import Node
-
-UNIVERSAL_INTROSPECTION = Node.parse("""\
-<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
-"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node>
-    <interface name="org.gnome.Shell.SearchProvider2">
-      <method name="Load" />
-        <method name="GetInitialResultSet">
-          <arg name="terms" direction="in" type="as" />
-            <arg name="result" direction="out" type="as" />
-        </method>
-        <method name="GetSubsearchResultSet">
-          <arg name="previous_results" direction="in" type="as" />
-            <arg name="new_terms" direction="in" type="as" />
-            <arg name="result" direction="out" type="as" />
-        </method>
-        <method name="GetResultMetas">
-          <arg name="results" direction="in" type="as" />
-            <arg name="result" direction="out" type="aa{sv}" />
-        </method>
-        <method name="ActivateResult">
-          <arg name="identifier" direction="in" type="s" />
-            <arg name="terms" direction="in" type="as" />
-            <arg name="timestamp" direction="in" type="u" />
-        </method>
-        <method name="LaunchSearch">
-          <arg name="terms" direction="in" type="as" />
-            <arg name="timestamp" direction="in" type="u" />
-        </method>
-    </interface>
-</node>\
-""")
-
-import configparser
-
-
-@dataclass(frozen=True)
-class GnomeSearchProviderInfo:
-    desktop_id: str
-    bus_name: str
-    object_path: str
-
-
-class GnomeSearchProvider:
-    def __init__(self, desktop_id: str, bus_name: str, object_path: str, bus: MessageBus):
-        self.provider_info = GnomeSearchProviderInfo(desktop_id, bus_name, object_path)
-        self.bus = bus
-        self.search_interface = None
-
-    async def init(self) -> None:
-        proxy_object = self.bus.get_proxy_object(self.provider_info.bus_name,
-                                                 self.provider_info.object_path,
-                                                 UNIVERSAL_INTROSPECTION)
-        self.search_interface = proxy_object.get_interface("org.gnome.Shell.SearchProvider2")
-
-    def __eq__(self, other):
-        return isinstance(other, GnomeSearchProvider) and self.provider_info == other.provider_info
-
-    def __hash__(self):
-        return hash(self.provider_info)
-
-    @property
-    def bus_name(self) -> str:
-        return self.provider_info.bus_name
-
-    @property
-    def desktop_id(self) -> str:
-        return self.provider_info.desktop_id
-
-    @property
-    def object_path(self) -> str:
-        return self.provider_info.object_path
-
-    async def get_initial_result_set(self, search_terms: list[str]) -> list[str]:
-        """
-        Query the search provider for a search term. Return a list of results from the provider.
-
-        The function is used to initiate a search. Results from the initial search can be passed to other functions
-        to continue the search with further information.
-
-        :param search_terms: List of search terms. Generally space separated input search.
-        :return: List of results.
-        """
-        return await self.search_interface.call_get_initial_result_set(search_terms)
-
-    async def get_subsearch_result_set(self, previous_search_results: list[str], current_search_terms: list[str]) -> \
-    list[str]:
-        """
-        Refine the initial search after the user types in more characters in the search entry.
-
-        :param previous_search_results: List of the previous search results returned from the ``get_initial_result_set()`` function.
-        :param current_search_terms: Updated search terms.
-        :return: List of updated search results.
-        """
-        return await self.search_interface.call_get_subsearch_result_set(previous_search_results, current_search_terms)
-
-    async def get_result_metas(self, result_ids: list[str]) -> list[dict[str, Variant]]:
-        """
-        Get detailed information about the results.
-
-        The result is a list of dictionaries, one for each input result_id. The dictionaries have the following members:
-
-        - "id": the result ID
-
-        - "name": the display name for the result
-
-        - "icon": a serialized GIcon (see g_icon_serialize()), or alternatively,
-
-        - "gicon": a textual representation of a GIcon (see g_icon_to_string()), or alternatively,
-
-        - "icon-data": a tuple of type (iiibiiay) describing a pixbuf with width, height, rowstride, has-alpha, bits-per-sample, n-channels, and image data
-
-        - "description": an optional short description (1-2 lines)
-
-        - "clipboardText": an optional text to send to the clipboard on activation
-
-        :param result_ids: Result IDs of the previously completed searches.
-        :return: List of dictionaries with structure as above.
-        """
-        return await self.search_interface.call_get_result_metas(result_ids)
-
-    async def activate_result(self, result_id: str, search_terms: list[str], timestamp: int) -> None:
-        """
-        Activates the result when the search result has been selected to open it in the application.
-
-        :param result_id: Result ID to activate.
-        :param search_terms: Search terms.
-        :param timestamp: Time the search was executed.
-        """
-        return await self.search_interface.call_activate_result(result_id, search_terms, timestamp)
-
-    async def launch_search(self, search_terms: list[str], timestamp: int) -> None:
-        """
-        Display more results in the application.
-
-        :param search_terms: Search terms.
-        :param timestamp: Time the search was executed.
-        """
-        return await self.search_interface.call_launch_search(search_terms, timestamp)
+from .provider import Provider
 
 
 @dataclass(frozen=True)
 class Result[T]:
-    search_provider: GnomeSearchProvider
+    search_provider: Provider
     query: list[str]
     results: Optional[T] = None
     error: Optional[Exception] = None
@@ -167,28 +31,17 @@ class Result[T]:
 
     def __repr__(self) -> str:
         if self.succeeded:
-            return f"✅ {self.search_provider.desktop_id}: {len(self.results)} results"
+            return f"{self.search_provider.desktop_id}: {len(self.results)} results"
         else:
             err_name = type(self.error).__name__ if self.error else "Unknown"
-            return f"❌ {self.search_provider.desktop_id}: {err_name}"
+            return f"{self.search_provider.desktop_id}: {err_name}"
 
 
-def _get_search_provider_dirs() -> list[Path]:
-    xdg_data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
-    paths = [Path(p) / "gnome-shell" / "search-providers" for p in xdg_data_dirs.split(":")]
-    # Add Flatpak user/system exports as fallback
-    # paths += [
-    #     Path("~/.local/share/flatpak/exports/share/gnome-shell/search-providers").expanduser(),
-    #     Path("/var/lib/flatpak/exports/share/gnome-shell/search-providers"),
-    # ]
-    return paths
-
-
-class GnomeSearchProviderInteracter:
+class Client:
     def __init__(self, auth: dbus_next.auth.Authenticator = None):
         self.bus = MessageBus(auth=auth)
         self.connected = False
-        self.search_providers: set[GnomeSearchProvider] = set()
+        self.search_providers: set[Provider] = set()
 
     async def init(self):
         await self.connect()
@@ -201,6 +54,17 @@ class GnomeSearchProviderInteracter:
     async def __aexit__(self, *exc):
         await self.disconnect()
 
+    @staticmethod
+    def _get_search_provider_dirs() -> list[Path]:
+        xdg_data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
+        paths = [Path(p) / "gnome-shell" / "search-providers" for p in xdg_data_dirs.split(":")]
+        # Add Flatpak user/system exports as fallback
+        # paths += [
+        #     Path("~/.local/share/flatpak/exports/share/gnome-shell/search-providers").expanduser(),
+        #     Path("/var/lib/flatpak/exports/share/gnome-shell/search-providers"),
+        # ]
+        return paths
+
     async def _collect_search_providers(self):
         # Assume the search providers exist in the folder Gnome expects. A different implementation exists
         # that instead loops through every single name and every single path to find if any bus
@@ -210,7 +74,7 @@ class GnomeSearchProviderInteracter:
 
         seen = set()
 
-        for base_dir in _get_search_provider_dirs():
+        for base_dir in self._get_search_provider_dirs():
             if not base_dir.is_dir():
                 continue
             for ini_path in base_dir.glob("*.ini"):
@@ -226,7 +90,7 @@ class GnomeSearchProviderInteracter:
                     bus_name = section["BusName"]
                     object_path = section["ObjectPath"]
 
-                    search_provider = GnomeSearchProvider(desktop_id, bus_name, object_path, self.bus)
+                    search_provider = Provider(desktop_id, bus_name, object_path, self.bus)
                     await search_provider.init()
                     self.search_providers.add(search_provider)
 
@@ -239,10 +103,11 @@ class GnomeSearchProviderInteracter:
     async def disconnect(self):
         self.bus.disconnect()
 
-    async def _get_initial_result_sets(self, search_providers: Iterable[GnomeSearchProvider], search_terms: list[str],
+    @staticmethod
+    async def _get_initial_result_sets(search_providers: Iterable[Provider], search_terms: list[str],
                                        timeout: float = 30) -> AsyncGenerator[Result[list[str]], None]:
         """Query all the search providers for the same query. Yield results as they arrive"""
-        tasks: dict[asyncio.Task, GnomeSearchProvider] = {}
+        tasks: dict[asyncio.Task, Provider] = {}
 
         try:
             for search_provider in search_providers:
@@ -292,7 +157,7 @@ class GnomeSearchProviderInteracter:
         # I don't know what the best way to handle this would be. It would be nice if this function was stateful and
         # would automatically use the previous search. Maybe I'll make a wrapper around this that keeps state information
 
-        tasks: dict[asyncio.Task, GnomeSearchProvider] = {}
+        tasks: dict[asyncio.Task, Provider] = {}
 
         other_failed_providers = []
 
@@ -339,11 +204,11 @@ class GnomeSearchProviderInteracter:
                         pass
 
 
-class GnomeSearchProviderInteracterStateful(GnomeSearchProviderInteracter):
+class ClientStateful(Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.previous_search_results: list[Result[list[str]]] = []
-        self.previous_search_providers_that_did_not_finish: set[GnomeSearchProvider] = set()
+        self.previous_search_providers_that_did_not_finish: set[Provider] = set()
 
     async def get_initial_result_sets(self, search_terms: list[str], timeout: float = 30) -> AsyncGenerator[
         Result[list[str]], None]:
@@ -375,29 +240,3 @@ class GnomeSearchProviderInteracterStateful(GnomeSearchProviderInteracter):
             self.previous_search_results.append(result)
             self.previous_search_providers_that_did_not_finish.discard(result.search_provider)
             yield result
-
-
-async def main():
-    gnome_search_provider = GnomeSearchProviderInteracterStateful()
-    await gnome_search_provider.init()
-    results_generator = gnome_search_provider.get_initial_result_sets(["2+2"], timeout=10)
-    async for result in results_generator:
-        print(result.search_provider.provider_info.bus_name)
-        if not result.error:
-            print(result.results)
-        else:
-            print(f"Provider failed: {result.error}")
-        print()
-
-    results_generator = gnome_search_provider.get_subsearch_result_sets(["2+2+3"], timeout=10)
-    async for result in results_generator:
-        print(result.search_provider.provider_info.bus_name)
-        if not result.error:
-            print(result.results)
-        else:
-            print(f"Provider failed: {result.error}")
-        print()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

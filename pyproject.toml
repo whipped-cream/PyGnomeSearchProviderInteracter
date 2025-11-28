@@ -1,11 +1,30 @@
 [project]
-name = "gnomesearchproviderlib"
+name = "pygnomesearchclient"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python package for interacting with Gnome search providers without using Gnome Shell"
+readme = "README.md"
+authors = [{ name = "whipped-cream", email = "michaellangley12@gmail.com" }]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha"
+]
+keywords = ["ignis", "hyprland", "niri"]
 requires-python = ">=3.13"
 dependencies = [
     "dbus-next",
-    "pygobject==3.54.5",
-    "pygobject-stubs==2.14.0",
-    "sphinx==8.3.0",
+    "pip>=25.3",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pygobject",
+    "pygobject-stubs",
+    "sphinx",
+    "pytest"
+]
+
+[project.urls]
+Homepage = "https://github.com/whipped-cream/PyGnomeSearchProviderInteracter"
