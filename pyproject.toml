@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gnomesearchclient"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Python package for interacting with Gnome search providers without using Gnome Shell"
 readme = "README.md"
 authors = [{ name = "whipped-cream", email = "michaellangley12@gmail.com" }]
