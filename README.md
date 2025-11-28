@@ -1,6 +1,6 @@
-# PyGnomeSearchProviderInteracter
+# PyGnomeSearchClient
 
-PyGnomeSearchProviderInteracter (better name at some point hopefully) is (going to be) 
+PyGnomeSearchClient is 
 a Python package for interacting with Gnome search providers outside the Gnome Shell 
 environment. This package is targeted mostly at users of compositors with custom widgets, 
 especially [Ignis](https://github.com/ignis-sh/ignis) since that's what I currently use.
@@ -59,10 +59,4 @@ maintaining state information.
 ## Contributing
 
 Please open an issue for any bugs or feature requests.
-
-I will be accepting PRs as soon as I complete the core functionality and fix up all the 
-existing bugs. Perhaps I should've done that before I made the repo public, perhaps not.
-
-## Disclaimer
-
-I did use AI for some of this code. Sorry professor :(
+If you know Python and PyGObject, feel free to open a PR.
