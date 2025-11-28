@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pygnomesearchclient"
 version = "0.1.0"
@@ -14,8 +18,7 @@ classifiers = [
 keywords = ["ignis", "hyprland", "niri"]
 requires-python = ">=3.13"
 dependencies = [
-    "dbus-next",
-    "pip>=25.3",
+    "dbus-next"
 ]
 
 [project.optional-dependencies]
