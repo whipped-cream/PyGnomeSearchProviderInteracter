@@ -31,4 +31,4 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/whipped-cream/PyGnomeSearchProviderInteracter"
+Homepage = "https://github.com/whipped-cream/PyGnomeSearchClient"
