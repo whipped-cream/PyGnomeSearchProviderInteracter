@@ -1,7 +1,6 @@
 __all__ = ["Result", "Client", "ClientStateful"]
 
 import os
-import sys
 
 import asyncio
 import configparser
@@ -17,6 +16,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .provider import Provider
+
+
+# Firefox currently seems to provide a broken implementation of the search provider interface, or it needs to be patched
+# in which is maybe being done by Fedora? If this is not correct then open an issue pls
+DEFAULT_BLACKLIST = {"firefox.desktop"}
 
 
 @dataclass(frozen=True)
@@ -40,10 +44,18 @@ class Result(Generic[T]):
 
 class Client:
     """Class for interacting with the Gnome search providers."""
-    def __init__(self, auth: dbus_next.auth.Authenticator = None):
+    def __init__(self, auth: dbus_next.auth.Authenticator = None, blacklist: set[str] = None):
+        """
+        :param auth: Authentication for the DBus bus. See dbus_next.auth.Authenticator
+        :param blacklist: Set of providers to ignore according to the desktop_id. Uses known bad providers if None
+        """
         self.bus = MessageBus(auth=auth)
         self.connected = False
         self.providers: set[Provider] = set()
+        if blacklist is not None:
+            self.blacklist = blacklist
+        else:
+            self.blacklist = DEFAULT_BLACKLIST.copy()
 
     async def init(self):
         await self.connect()
@@ -92,9 +104,13 @@ class Client:
                     bus_name = section["BusName"]
                     object_path = section["ObjectPath"]
 
-                    search_provider = Provider(desktop_id, bus_name, object_path, self.bus)
-                    await search_provider.init()
-                    self.providers.add(search_provider)
+                    if desktop_id not in self.blacklist:
+                        logger.info(f"Adding {desktop_id} to the list of search providers")
+                        search_provider = Provider(desktop_id, bus_name, object_path, self.bus)
+                        await search_provider.init()
+                        self.providers.add(search_provider)
+                    else:
+                        logger.info(f"Ignoring {desktop_id} since it is on the blacklist")
 
                 except (KeyError, configparser.Error, OSError) as e:
                     logger.warning(f"Skipping invalid provider {ini_path}: {e}")
