@@ -1,10 +1,10 @@
 __all__ = ["Provider", "ProviderInfo"]
 
 from dataclasses import dataclass
+from typing import Optional, TypedDict
 
-from dbus_next.aio import MessageBus
+from dbus_next.aio import MessageBus, ProxyObject
 from dbus_next.introspection import Node
-from dbus_next import Variant
 
 UNIVERSAL_INTROSPECTION = Node.parse("""\
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
@@ -39,6 +39,33 @@ UNIVERSAL_INTROSPECTION = Node.parse("""\
 """)
 
 
+class ResultMeta(TypedDict, total=False):
+    """
+    Class for the return type of the get_result_metas function.
+
+    - "id": the result ID
+
+    - "name": the display name for the result
+
+    - "icon": a serialized GIcon (see g_icon_serialize()), or alternatively,
+
+    - "gicon": a textual representation of a GIcon (see g_icon_to_string()), or alternatively,
+
+    - "icon-data": a tuple of type (iiibiiay) describing a pixbuf with width, height, rowstride, has-alpha, bits-per-sample, n-channels, and image data
+
+    - "description": an optional short description (1-2 lines)
+
+    - "clipboardText": an optional text to send to the clipboard on activation
+    """
+    id: str
+    name: str
+    icon: str
+    gicon: str
+    icon_data: tuple[int, int, int, bool, int, int, bytes]
+    description: str
+    clipboardText: str
+
+
 @dataclass(frozen=True)
 class ProviderInfo:
     desktop_id: str
@@ -50,7 +77,7 @@ class Provider:
     def __init__(self, desktop_id: str, bus_name: str, object_path: str, bus: MessageBus):
         self.provider_info = ProviderInfo(desktop_id, bus_name, object_path)
         self.bus = bus
-        self.search_interface = None
+        self.search_interface: Optional[ProxyObject] = None
 
     async def init(self) -> None:
         proxy_object = self.bus.get_proxy_object(self.provider_info.bus_name,
@@ -88,39 +115,24 @@ class Provider:
         """
         return await self.search_interface.call_get_initial_result_set(search_terms)
 
-    async def get_subsearch_result_set(self, previous_search_results: list[str], current_search_terms: list[str]) -> \
-    list[str]:
+    async def get_subsearch_result_set(self, previous_search_results: list[str], current_search_terms: list[str]) -> list[str]:
         """
         Refine the initial search after the user types in more characters in the search entry.
 
-        :param previous_search_results: List of the previous search results returned from the ``get_initial_result_set()`` function.
+        :param previous_search_results: List of the previous search results returned from this or the ``get_initial_result_set()`` function.
         :param current_search_terms: Updated search terms.
         :return: List of updated search results.
         """
         return await self.search_interface.call_get_subsearch_result_set(previous_search_results, current_search_terms)
 
-    async def get_result_metas(self, result_ids: list[str]) -> list[dict[str, Variant]]:
+    async def get_result_metas(self, result_ids: list[str]) -> list[ResultMeta]:
         """
         Get detailed information about the results.
 
-        The result is a list of dictionaries, one for each input result_id. The dictionaries have the following members:
-
-        - "id": the result ID
-
-        - "name": the display name for the result
-
-        - "icon": a serialized GIcon (see g_icon_serialize()), or alternatively,
-
-        - "gicon": a textual representation of a GIcon (see g_icon_to_string()), or alternatively,
-
-        - "icon-data": a tuple of type (iiibiiay) describing a pixbuf with width, height, rowstride, has-alpha, bits-per-sample, n-channels, and image data
-
-        - "description": an optional short description (1-2 lines)
-
-        - "clipboardText": an optional text to send to the clipboard on activation
+        The result is a list of dictionaries, one for each input result_id.
 
         :param result_ids: Result IDs of the previously completed searches.
-        :return: List of dictionaries with structure as above.
+        :return: List of dictionaries.
         """
         return await self.search_interface.call_get_result_metas(result_ids)
 

@@ -128,7 +128,7 @@ class SearchProviderSelector(Adw.NavigationPage):
         search_all_button.connect("activated", on_search_all_selected)
         search_provider_list.append(search_all_button)
 
-        for provider in self.client.search_providers:
+        for provider in self.client.providers:
             desktop_info: Gio.DesktopAppInfo = GioUnix.DesktopAppInfo.new(provider.desktop_id)
 
             provider_button = Adw.ButtonRow(
@@ -182,7 +182,7 @@ class MainWindow(Adw.ApplicationWindow):
 
 class Application(Adw.Application):
     def __init__(self):
-        self.searcher = gnomesearchclient.ClientStateful()
+        self.searcher = gnomesearchclient.ClientStateful(gnomesearchclient.Client())
 
         super().__init__(application_id="org.example.AdwaitaPyGObject",
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
