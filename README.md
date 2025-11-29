@@ -35,7 +35,16 @@ and a config file be placed in some location.
 
 ## Usage
 
-TODO
+The module provides a number of classes. 
+`Provider` is the base class for interacting with a single search provider,
+and provides the same functions as the Gnome search provider interface.
+The `Client` class collects the providers and interacts with all of them 
+simultaneously.
+The `ClientStateful` wraps the `Client` and maintains state information between 
+searches so that the program doesn't have to manage previous search results itself.
+
+Documentation is generated using Sphinx available [here](/docs) and there are a number 
+of examples of usage [here](/examples).
 
 ## Documentation
 
