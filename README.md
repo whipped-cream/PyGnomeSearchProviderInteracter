@@ -43,7 +43,7 @@ simultaneously.
 The `ClientStateful` wraps the `Client` and maintains state information between 
 searches so that the program doesn't have to manage previous search results itself.
 
-Documentation is generated using Sphinx available [here](/docs) and there are a number 
+Documentation is generated using Sphinx available [here](https://whipped-cream.github.io/PyGnomeSearchClient) and there are a number 
 of examples of usage [here](/examples).
 
 ## Documentation
