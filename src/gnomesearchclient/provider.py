@@ -1,4 +1,4 @@
-__all__ = ["Provider", "ProviderInfo"]
+__all__ = ["Provider", "ProviderInfo", "ResultMeta"]
 
 from dataclasses import dataclass
 from typing import Optional, TypedDict
